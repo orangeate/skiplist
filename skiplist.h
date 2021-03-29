@@ -16,7 +16,7 @@ class Node
 {
 public:
     Node(K key, V val, int level) :
-        data_(Data_<K, V>(key, val)), level_(level-1), level_next_(std::vector<std::shared_ptr<Node<K, V>>>(level, nullptr)){}
+            data_(Data_<K, V>(key, val)), level_(level-1), forward_(std::vector<std::shared_ptr<Node<K, V>>>(level, nullptr)){}
     ~Node() = default;
 
     K get_key() const {return data_.key_;}
@@ -25,7 +25,7 @@ public:
     void set_val(V val) { data_.val_ = val;}
 
 public:
-    std::vector<std::shared_ptr<Node<K, V>>> level_next_;     //  level_next_[0] --> level_next_[level-1]
+    std::vector<std::shared_ptr<Node<K, V>>> forward_;     //  forward_[0] --> forward_[level-1]
 private:
     int level_;
     Data_<K, V> data_;
@@ -38,7 +38,7 @@ public:
     explicit SkipList(int max_level) : generator(time(nullptr))
     {
         level_ = 0;
-        count_ = 0;
+        size_ = 0;
         max_level_ = max_level;
 
         head_ = std::make_shared<Node<K, V>>(Node<K, V>(K(), V(), max_level_));
@@ -49,7 +49,11 @@ public:
     bool insert(K key, V val);
     bool contains(K key);
     bool erase(K key);
-    int count();
+
+    int size();
+    bool empty();
+    void clear();
+
     V& operator[] (K key);
 
     void show();
@@ -62,7 +66,7 @@ private:
 private:
     int max_level_;
     int level_;
-    int count_;
+    int size_;
 
     std::shared_ptr<Node<K,V>> head_;
     std::default_random_engine generator;
@@ -72,30 +76,30 @@ private:
 template<typename K, typename V>
 std::shared_ptr<Node<K,V>> SkipList<K, V>::find(int key, std::vector<std::shared_ptr<Node<K,V>>>& bucket)
 {
-    auto p = this->head_;
+    auto search_path = this->head_;
 
     for (int i = bucket.size()-1; i >= 0; i--)
     {
-        while (p->level_next_[i] != nullptr && p->level_next_[i]->get_key() < key)
-            p = p->level_next_[i];
+        while (search_path->forward_[i] != nullptr && search_path->forward_[i]->get_key() < key)
+            search_path = search_path->forward_[i];
 
-        bucket[i] = p;
+        bucket[i] = search_path;
     }
 
-    p = p->level_next_[0];
-    return p;
+    search_path = search_path->forward_[0];
+    return search_path;
 }
 
 template<typename K, typename V>
 bool SkipList<K, V>::insert(K key, V val)
 {
-    std::vector<std::shared_ptr<Node<K,V>>> bucket(this->max_level_, nullptr);
-    auto p = this->find(key, bucket);
+    std::vector<std::shared_ptr<Node<K,V>>> update(this->max_level_, nullptr);
+    auto p = this->find(key, update);
 
     if(p != nullptr && p->get_key() == key)
         return false;
 
-    // insert new node between bucket[i] and p
+    // insert new node between update[i] and p
     if(p == nullptr || p->get_key() != key)
     {
         int new_level = roulette_level();
@@ -104,17 +108,17 @@ bool SkipList<K, V>::insert(K key, V val)
         if (new_level > level_)
         {
             for (int i = level_; i < new_level; i++)
-                bucket[i] = head_;
+                update[i] = head_;
             level_ = new_level;
         }
 
         std::shared_ptr<Node<K, V>> new_node = std::make_shared<Node<K, V>>(Node<K, V>(key, val, new_level));
         for (int i = 0; i < new_level; i++)
         {
-            new_node->level_next_[i] = bucket[i]->level_next_[i];
-            bucket[i]->level_next_[i] = new_node;
+            new_node->forward_[i] = update[i]->forward_[i];
+            update[i]->forward_[i] = new_node;
         }
-        count_++;
+        size_++;
     }
     return true;
 }
@@ -140,20 +144,20 @@ bool SkipList<K, V>::erase(K key)
     {
         for (int i = 0; i < level_; i++)
         {
-            if (bucket[i]->level_next_[i] != p)
+            if (bucket[i]->forward_[i] != p)
                 break;
 
-            bucket[i]->level_next_[i] = p->level_next_[i];
+            bucket[i]->forward_[i] = p->forward_[i];
         }
-        count_--;
+        size_--;
     }
     return true;
 }
 
 template<typename K, typename V>
-int SkipList<K, V>::count()
+int SkipList<K, V>::size()
 {
-    return count_;
+    return size_;
 }
 
 
@@ -174,13 +178,13 @@ void SkipList<K, V>::show()
 {
     for (int i = level_-1; i >= 0; i--)
     {
-        auto node = this->head_->level_next_[i];
+        auto node = this->head_->forward_[i];
         std::cout << "Level " << i << ": ";
 
         while (node != nullptr)
         {
             std::cout << node->get_key() << ":" << node->get_value() <<" ";
-            node = node->level_next_[i];
+            node = node->forward_[i];
         }
 
         std::cout << std::endl;
@@ -194,4 +198,10 @@ V &SkipList<K, V>::operator[](K key)
     auto p = this->find(key, bucket);
     if(p != nullptr && p->get_key() == key)
         return p->get_value();
+}
+
+template<typename K, typename V>
+bool SkipList<K, V>::empty()
+{
+    return size_ == 0;
 }

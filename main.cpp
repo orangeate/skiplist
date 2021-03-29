@@ -20,10 +20,10 @@ int main()
 
     skipList.show();
 
-    std::cout << "elements_count: " << skipList.count() << std::endl;
-    skipList.contains(126) ? std::cout<< "yes" : std::cout<< "no";
+    std::cout << "elements_count: " << skipList.size() << std::endl;
+    skipList.contains(126) ? std::cout<< "Found" : std::cout<< "Not found";
     std::cout<<std::endl;
-    skipList.contains(240) ? std::cout<< "yes" : std::cout<< "no";
+    skipList.contains(240) ? std::cout<< "Found" : std::cout<< "Not found";
 
     return 0;
 }
