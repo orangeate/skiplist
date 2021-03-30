@@ -26,6 +26,7 @@ public:
 
 public:
     std::vector<std::shared_ptr<Node<K, V>>> forward_;     //  forward_[0] --> forward_[level-1]
+    // std::shared_ptr<Node<K, V>> bakward_;
 private:
     int level_;
     Data_<K, V> data_;
@@ -53,6 +54,8 @@ public:
     int size();
     bool empty();
     void clear();
+    void save();
+    void load(std::string path);
 
     V& operator[] (K key);
 
@@ -151,6 +154,11 @@ bool SkipList<K, V>::erase(K key)
         }
         size_--;
     }
+
+    /*
+     * update level
+     */
+
     return true;
 }
 
@@ -167,6 +175,7 @@ int SkipList<K, V>::roulette_level()
     int level = 1;
     std::uniform_int_distribution<int> distribution(0,1);
 
+    // while ((random()&0xFFFF) < (0.25 * 0xFFFF))
     while (distribution(generator))
         level++;
 
